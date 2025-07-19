@@ -27,6 +27,8 @@ pub async fn event_handler(
                 TransferType::CloseOverview(config) => close_overview(&mut globals, config),
                 TransferType::CloseSwitch => close_switch(&mut globals),
                 TransferType::Restart => restart(&globals),
+                TransferType::ShiftSwitch(shift) => shift_switch(&mut globals, shift),
+                TransferType::TabSwitch(tab) => tab_switch(&mut globals, tab),
             }
             if close_socket {
                 return;
@@ -77,6 +79,8 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
                     .map(|(o, _)| windows_lib::overview_already_open(o))
                     .unwrap_or(false)
             {
+                switch.shift = config.reverse;
+                switch.tab = true;
                 windows_lib::open_switch(switch, config).warn("Failed to open switch window");
             } else {
                 warn!("Switch or Overview already open");
@@ -89,10 +93,38 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
     }
 }
 
+fn shift_switch(global: &mut Globals, shift: bool) {
+    if let Some(windows) = &mut global.windows {
+        if let Some(switch) = &mut windows.switch {
+            if !switch.tab {
+                switch.shift = shift;
+            }
+        } else {
+            warn!("Window switch not active");
+        }
+    } else {
+        warn!("Windows not active");
+    }
+}
+fn tab_switch(global: &mut Globals, tab: bool) {
+    if let Some(windows) = &mut global.windows {
+        if let Some(switch) = &mut windows.switch {
+            switch.tab = tab;
+        } else {
+            warn!("Window switch not active");
+        }
+    } else {
+        warn!("Windows not active");
+    }
+}
 fn switch_switch(global: &mut Globals, config: SwitchSwitchConfig) {
     if let Some(windows) = &mut global.windows {
         if let Some(switch) = &mut windows.switch {
-            windows_lib::update_switch(switch, config)
+            if switch.shift {
+                windows_lib::update_switch(switch, SwitchSwitchConfig { reverse: true });
+            } else {
+                windows_lib::update_switch(switch, config);
+            }
         } else {
             warn!("Window switch not active");
         }

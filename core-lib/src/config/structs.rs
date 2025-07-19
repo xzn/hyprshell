@@ -26,9 +26,9 @@ pub struct Windows {
     pub scale: f64,
     #[default = 5]
     pub items_per_row: u8,
-    #[default(Some(Overview::default()))]
+    #[default(None)]
     pub overview: Option<Overview>,
-    #[default(Some(Switch::default()))]
+    #[default(None)]
     pub switch: Option<Switch>,
 }
 

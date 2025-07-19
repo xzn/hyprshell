@@ -13,6 +13,8 @@ pub enum TransferType {
     SwitchSwitch(SwitchSwitchConfig),
     CloseOverview(CloseOverviewConfig),
     CloseSwitch,
+    ShiftSwitch(bool),
+    TabSwitch(bool),
     /// send from the gui itself when typing the launcher
     Type(String),
     /// send from pressing ESC

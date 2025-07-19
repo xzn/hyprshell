@@ -1,6 +1,6 @@
 use crate::global::{WindowsSwitchConfig, WindowsSwitchData};
 use async_channel::Sender;
-use core_lib::config::{FilterBy, Modifier, Switch, Windows};
+use core_lib::config::{FilterBy, Switch, Windows};
 use core_lib::transfer::{SwitchSwitchConfig, TransferType};
 use core_lib::{HyprlandData, SWITCH_NAMESPACE, WarnWithDetails};
 use exec_lib::get_initial_active;
@@ -47,9 +47,8 @@ pub fn create_windows_switch_window(
     let event_sender_2 = event_sender.clone();
     key_controller.connect_key_pressed(move |_, key, _, _| handle_key(key, event_sender_2.clone()));
     let event_sender_3 = event_sender.clone();
-    let r#mod = switch.modifier;
     key_controller.connect_key_released(move |_, key, _, _| {
-        handle_release(key, r#mod, event_sender_3.clone())
+        handle_release(key, event_sender_3.clone())
     });
     window.add_controller(key_controller);
 
@@ -78,16 +77,19 @@ pub fn create_windows_switch_window(
         clients: HashMap::default(),
         active: get_initial_active()?,
         hypr_data: HyprlandData::default(),
+        shift: false,
+        tab: false,
     })
 }
 
-fn handle_release(key: Key, modifier: Modifier, event_sender: Sender<TransferType>) {
-    if ((key == Key::Alt_L || key == Key::Alt_R) && modifier == Modifier::Alt)
-        || ((key == Key::Control_L || key == Key::Control_R) && modifier == Modifier::Ctrl)
-        || ((key == Key::Super_L || key == Key::Super_R) && modifier == Modifier::Super)
-    {
+fn handle_release(key: Key, event_sender: Sender<TransferType>) {
+    if key == Key::Shift_L || key == Key::Shift_R {
         event_sender
-            .send_blocking(TransferType::CloseSwitch)
+            .send_blocking(TransferType::ShiftSwitch(false))
+            .warn("unable to send");
+    } else if key == Key::Tab {
+        event_sender
+            .send_blocking(TransferType::TabSwitch(false))
             .warn("unable to send");
     }
 }

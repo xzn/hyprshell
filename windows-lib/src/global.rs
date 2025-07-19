@@ -31,6 +31,8 @@ pub struct WindowsSwitchData {
     pub clients: HashMap<ClientId, Button>,
     pub active: Active,
     pub hypr_data: HyprlandData,
+    pub shift: bool,
+    pub tab: bool,
 }
 
 #[derive(Debug)]

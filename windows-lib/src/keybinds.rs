@@ -34,24 +34,64 @@ pub fn generate_open_keybinds(windows: &Windows) -> Vec<ExecBind> {
             exec: generate_transfer_socat(&TransferType::OpenSwitch(OpenSwitch { reverse: true }))
                 .into_boxed_str(),
         });
-        // binds.push(ExecBind {
-        //     mods: vec![switch.modifier],
-        //     key: Box::from("tab"),
-        //     on_release: true,
-        //     exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
-        // });
-        // binds.push(ExecBind {
-        //     mods: vec![switch.modifier],
-        //     key: Box::from("grave"),
-        //     on_release: true,
-        //     exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
-        // });
-        // binds.push(ExecBind {
-        //     mods: vec![switch.modifier, Modifier::Shift],
-        //     key: Box::from("tab"),
-        //     on_release: true,
-        //     exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
-        // });
+        match switch.modifier {
+            Modifier::Alt => {
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Alt_L"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Alt_R"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+            }
+            Modifier::Ctrl => {
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Control_L"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Control_R"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+            }
+            Modifier::Super => {
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Super_L"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Super_R"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+            }
+            Modifier::Shift => {
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Shift_L"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+                binds.push(ExecBind {
+                    mods: vec![],
+                    key: Box::from("Shift_R"),
+                    on_release: true,
+                    exec: generate_transfer_socat(&TransferType::CloseSwitch).into_boxed_str(),
+                });
+            }
+        }
     }
 
     binds
