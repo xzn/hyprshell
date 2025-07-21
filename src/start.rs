@@ -167,6 +167,7 @@ fn create_windows(
                 overview.modifier,
                 data_dir,
                 event_sender.clone(),
+                overview.use_grave_for_reverse,
             )
             .context("failed to create launcher window")?;
             windows_data.overview = Some((overview_data, launcher_data));
@@ -239,7 +240,7 @@ pub fn register_event_restarter(
             let cause_str = cause.str;
             let duration = Instant::now().duration_since(last_send);
             if duration < delay {
-                if cause.ty == last_ty {
+                if cause.ty == last_ty && last_ty == RestartType::HyprlandConfig {
                     debug!("Ignoring restart request ({cause_str}) too soon after last send");
                     last_ty = cause.ty;
                     continue;

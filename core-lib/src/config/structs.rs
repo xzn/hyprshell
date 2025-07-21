@@ -47,6 +47,8 @@ pub struct Overview {
     pub filter_by: Vec<FilterBy>,
     #[default = false]
     pub hide_filtered: bool,
+    #[default = false]
+    pub use_grave_for_reverse: bool,
 }
 
 #[derive(SmartDefault, Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -140,6 +142,8 @@ pub struct Switch {
     pub filter_by: Vec<FilterBy>,
     #[default = false]
     pub show_workspaces: bool,
+    #[default = false]
+    pub use_grave_for_reverse: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize, Serialize)]

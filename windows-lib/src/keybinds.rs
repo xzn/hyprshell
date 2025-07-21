@@ -25,6 +25,18 @@ pub fn generate_open_keybinds(windows: &Windows) -> Vec<ExecBind> {
             .into_boxed_str(),
         });
 
+        if overview.use_grave_for_reverse {
+            binds.push(ExecBind {
+                mods: vec![overview.modifier],
+                key: Box::from("grave"),
+                on_release: false,
+                exec: generate_transfer_socat(&TransferType::OpenOverview(OpenOverview {
+                    reverse: false,
+                }))
+                .into_boxed_str(),
+            });
+        }
+
         let mut overview_release = generate_transfer_socat(&TransferType::TabOverview(false));
         let switch_release = generate_transfer_socat(&TransferType::TabSwitch(false));
 
@@ -77,13 +89,17 @@ pub fn generate_open_keybinds(windows: &Windows) -> Vec<ExecBind> {
             exec: generate_transfer_socat(&TransferType::OpenSwitch(OpenSwitch { reverse: false }))
                 .into_boxed_str(),
         });
-        binds.push(ExecBind {
-            mods: vec![switch.modifier],
-            key: Box::from("grave"),
-            on_release: false,
-            exec: generate_transfer_socat(&TransferType::OpenSwitch(OpenSwitch { reverse: true }))
+        if switch.use_grave_for_reverse {
+            binds.push(ExecBind {
+                mods: vec![switch.modifier],
+                key: Box::from("grave"),
+                on_release: false,
+                exec: generate_transfer_socat(&TransferType::OpenSwitch(OpenSwitch {
+                    reverse: true,
+                }))
                 .into_boxed_str(),
-        });
+            });
+        }
         binds.push(ExecBind {
             mods: vec![switch.modifier, Modifier::Shift],
             key: Box::from("tab"),

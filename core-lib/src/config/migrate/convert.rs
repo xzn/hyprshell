@@ -41,6 +41,7 @@ impl old_structs::Overview {
             launcher: launcher.unwrap_or_default(),
             hide_filtered: value.other.hide_filtered,
             strip_html_from_workspace_title,
+            use_grave_for_reverse: false,
         }
     }
 }

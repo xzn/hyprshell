@@ -25,6 +25,7 @@ pub fn create_windows_overview_launcher_window(
     open_modifier: Modifier,
     data_dir: &Path,
     event_sender: Sender<TransferType>,
+    grave: bool,
 ) -> anyhow::Result<LauncherData> {
     let _span = span!(Level::TRACE, "create_windows_overview_launcher_window").entered();
 
@@ -89,6 +90,7 @@ pub fn create_windows_overview_launcher_window(
             results_2.clone(),
             modifiers_2.clone(),
             event_sender_3.clone(),
+            grave,
         )
     });
     let event_sender_4 = event_sender.clone();
@@ -181,6 +183,7 @@ fn handle_key(
     results: gtk::Box,
     mods: Arc<Mutex<u16>>,
     event_sender: Sender<TransferType>,
+    grave: bool,
 ) -> Propagation {
     let mut mods = mods.lock().unwrap();
     match key {
@@ -256,13 +259,17 @@ fn handle_key(
             Propagation::Stop
         }
         (_, Key::grave) => {
-            event_sender
-                .send_blocking(TransferType::SwitchOverview(SwitchOverviewConfig {
-                    workspace: false,
-                    direction: Direction::Left,
-                }))
-                .warn("unable to send");
-            Propagation::Stop
+            if grave {
+                event_sender
+                    .send_blocking(TransferType::SwitchOverview(SwitchOverviewConfig {
+                        workspace: false,
+                        direction: Direction::Left,
+                    }))
+                    .warn("unable to send");
+                Propagation::Stop
+            } else {
+                Propagation::Proceed
+            }
         }
         (_, Key::Up) => {
             event_sender

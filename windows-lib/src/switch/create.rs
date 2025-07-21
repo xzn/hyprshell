@@ -45,11 +45,12 @@ pub fn create_windows_switch_window(
 
     let key_controller = EventControllerKey::new();
     let event_sender_2 = event_sender.clone();
-    key_controller.connect_key_pressed(move |_, key, _, _| handle_key(key, event_sender_2.clone()));
+    let grave = switch.use_grave_for_reverse;
+    key_controller
+        .connect_key_pressed(move |_, key, _, _| handle_key(key, event_sender_2.clone(), grave));
     let event_sender_3 = event_sender.clone();
-    key_controller.connect_key_released(move |_, key, _, _| {
-        handle_release(key, event_sender_3.clone())
-    });
+    key_controller
+        .connect_key_released(move |_, key, _, _| handle_release(key, event_sender_3.clone()));
     window.add_controller(key_controller);
 
     window.init_layer_shell();
@@ -95,7 +96,7 @@ fn handle_release(key: Key, event_sender: Sender<TransferType>) {
     }
 }
 
-fn handle_key(key: Key, event_sender: Sender<TransferType>) -> Propagation {
+fn handle_key(key: Key, event_sender: Sender<TransferType>, grave: bool) -> Propagation {
     match key {
         Key::Escape => {
             event_sender
@@ -120,12 +121,16 @@ fn handle_key(key: Key, event_sender: Sender<TransferType>) -> Propagation {
             Propagation::Stop
         }
         Key::grave => {
-            event_sender
-                .send_blocking(TransferType::SwitchSwitch(SwitchSwitchConfig {
-                    reverse: true,
-                }))
-                .warn("unable to send");
-            Propagation::Stop
+            if grave {
+                event_sender
+                    .send_blocking(TransferType::SwitchSwitch(SwitchSwitchConfig {
+                        reverse: true,
+                    }))
+                    .warn("unable to send");
+                Propagation::Stop
+            } else {
+                Propagation::Proceed
+            }
         }
         _ => Propagation::Proceed,
     }
