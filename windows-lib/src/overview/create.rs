@@ -87,5 +87,6 @@ pub fn create_windows_overview_window(
         hypr_data: HyprlandData::default(),
         shift: false,
         tab: false,
+        opened: false,
     })
 }

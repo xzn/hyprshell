@@ -11,6 +11,7 @@ pub struct WindowsOverviewData {
     pub hypr_data: HyprlandData,
     pub shift: bool,
     pub tab: bool,
+    pub opened: bool,
 }
 
 #[derive(Debug)]
@@ -35,6 +36,7 @@ pub struct WindowsSwitchData {
     pub hypr_data: HyprlandData,
     pub shift: bool,
     pub tab: bool,
+    pub opened: bool,
 }
 
 #[derive(Debug)]

@@ -65,6 +65,7 @@ fn open_overview(global: &mut Globals, event_sender: Sender<TransferType>, confi
                     .warn("Failed to open overview window");
                 overview.shift = config.reverse;
                 overview.tab = true;
+                overview.opened = true;
                 launcher_lib::open_launcher(launcher)
             } else {
                 warn!("Overview or Switch already open");
@@ -89,6 +90,7 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
             {
                 switch.shift = config.reverse;
                 switch.tab = true;
+                switch.opened = true;
                 windows_lib::open_switch(switch, config).warn("Failed to open switch window");
             } else {
                 warn!("Switch or Overview already open");
@@ -203,7 +205,7 @@ fn exit(global: &mut Globals) {
 fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
     if let Some(windows) = &mut global.windows {
         if let Some((overview, launcher)) = &mut windows.overview {
-            if !overview.tab {
+            if overview.opened && !overview.tab {
                 match config {
                     // return (focus active)
                     CloseOverviewConfig::None => {
@@ -237,6 +239,7 @@ fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
                         launcher_lib::close_launcher_by_char(launcher, None);
                     }
                 }
+                overview.opened = false;
             }
         }
     }
@@ -246,8 +249,9 @@ fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
 fn close_switch(global: &mut Globals) {
     if let Some(windows) = &mut global.windows {
         if let Some(switch) = &mut windows.switch {
-            if !switch.tab {
+            if switch.opened && !switch.tab {
                 windows_lib::close_switch(switch, true);
+                switch.opened = false;
             }
         }
     }

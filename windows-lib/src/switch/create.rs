@@ -79,6 +79,7 @@ pub fn create_windows_switch_window(
         hypr_data: HyprlandData::default(),
         shift: false,
         tab: false,
+        opened: false,
     })
 }
 
