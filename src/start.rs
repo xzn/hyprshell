@@ -25,6 +25,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
+use std::thread::sleep;
 use std::time::{Duration, Instant};
 use tracing::{Level, debug, error, info, span};
 use windows_lib::{
@@ -83,6 +84,7 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
 
 pub struct Globals {
     pub windows: Option<WindowsGlobal>,
+    pub app: Application,
 }
 
 #[derive(Debug, Default)]
@@ -149,7 +151,10 @@ fn create_windows(
     data_dir: &Path,
     event_sender: Sender<TransferType>,
 ) -> anyhow::Result<Globals> {
-    let mut global = Globals { windows: None };
+    let mut global = Globals {
+        windows: None,
+        app: app.clone(),
+    };
     if let Some(windows) = &config.windows {
         let mut windows_data = WindowsGlobal::default();
         if let Some(overview) = &windows.overview {
@@ -158,6 +163,7 @@ fn create_windows(
             let launcher_data = create_windows_overview_launcher_window(
                 app,
                 &overview.launcher,
+                overview.key.clone(),
                 overview.modifier,
                 data_dir,
                 event_sender.clone(),
@@ -217,35 +223,64 @@ pub fn register_event_restarter(
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(1500);
-    let (restart_sender, restart_receiver) = async_channel::bounded(1);
-    glib::timeout_add_local_once(Duration::from_millis(delay), move || {
+    let delay = Duration::from_millis(delay);
+    let (restart_sender, restart_receiver) = async_channel::bounded(2);
+    glib::timeout_add_local_once(delay, move || {
         setup_restart_listener(&config_path, &css_path, restart_sender);
     });
     glib::spawn_future_local(async move {
         let mut last_send = Instant::now();
+        let mut last_ty = RestartType::Unknown;
         loop {
-            let cause = restart_receiver.recv().await.unwrap_or_default();
-            let now = Instant::now();
-            if now.duration_since(last_send) < Duration::from_millis(delay) {
-                debug!("Ignoring restart request ({cause}) too soon after last send");
-                continue;
+            let cause = restart_receiver.recv().await.unwrap_or(RestartMsg {
+                str: "",
+                ty: RestartType::Unknown,
+            });
+            let cause_str = cause.str;
+            let duration = Instant::now().duration_since(last_send);
+            if duration < delay {
+                if cause.ty == last_ty {
+                    debug!("Ignoring restart request ({cause_str}) too soon after last send");
+                    last_ty = cause.ty;
+                    continue;
+                }
+                debug!("Delaying restart request ({cause_str}) too soon after last send");
+                sleep(delay - duration);
             }
-            info!("Restarting gui ({cause})");
+            info!("Restarting gui ({cause_str})");
             event_sender
                 .send(TransferType::Restart)
                 .await
                 .warn("unable to send restart");
-            last_send = now;
+            last_send = Instant::now();
+            last_ty = cause.ty;
         }
     });
 }
 
 static WATCHERS: OnceLock<Mutex<Vec<Box<dyn Any + Send>>>> = OnceLock::new();
 
-fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sender<&'static str>) {
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum RestartType {
+    Unknown,
+    HyprshellConfig,
+    HyprshellCss,
+    Monitor,
+    HyprlandConfig,
+}
+
+struct RestartMsg {
+    str: &'static str,
+    ty: RestartType,
+}
+
+fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sender<RestartMsg>) {
     let tx = restart_tx.clone();
     if let Some(watcher) = hyprshell_config_listener(config_path, move |mess| {
-        let _ = tx.send_blocking(mess);
+        let _ = tx.send_blocking(RestartMsg {
+            str: mess,
+            ty: RestartType::HyprshellConfig,
+        });
     }) {
         WATCHERS
             .get_or_init(|| Mutex::new(Vec::new()))
@@ -255,7 +290,10 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
     };
     let tx = restart_tx.clone();
     if let Some(watcher) = hyprshell_css_listener(css_path, move |mess| {
-        let _ = tx.send_blocking(mess);
+        let _ = tx.send_blocking(RestartMsg {
+            str: mess,
+            ty: RestartType::HyprshellCss,
+        });
     }) {
         WATCHERS
             .get_or_init(|| Mutex::new(Vec::new()))
@@ -267,14 +305,20 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
     let tx = restart_tx.clone();
     glib::spawn_future_local(async move {
         monitor_listener(move |mess| {
-            let _ = tx.send_blocking(mess);
+            let _ = tx.send_blocking(RestartMsg {
+                str: mess,
+                ty: RestartType::Monitor,
+            });
         })
         .await;
     });
     let tx = restart_tx.clone();
     glib::spawn_future_local(async move {
         hyprland_config_listener(move |mess| {
-            let _ = tx.send_blocking(mess);
+            let _ = tx.send_blocking(RestartMsg {
+                str: mess,
+                ty: RestartType::HyprlandConfig,
+            });
         })
         .await;
     });

@@ -179,4 +179,13 @@ impl Modifier {
             Modifier::Shift => "shift_l",
         }
     }
+
+    pub fn to_r_key(self) -> &'static str {
+        match self {
+            Modifier::Alt => "alt_r",
+            Modifier::Ctrl => "control_r",
+            Modifier::Super => "super_r",
+            Modifier::Shift => "shift_r",
+        }
+    }
 }

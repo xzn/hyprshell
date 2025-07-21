@@ -21,6 +21,7 @@ use tracing::{Level, debug, span};
 pub fn create_windows_overview_launcher_window(
     app: &Application,
     launcher: &Launcher,
+    open_key: Box<str>,
     open_modifier: Modifier,
     data_dir: &Path,
     event_sender: Sender<TransferType>,
@@ -90,8 +91,15 @@ pub fn create_windows_overview_launcher_window(
             event_sender_3.clone(),
         )
     });
+    let event_sender_4 = event_sender.clone();
     event_controller.connect_key_released(move |_, key, _, _| {
-        handle_release(key, open_modifier, modifiers.clone());
+        handle_release(
+            key,
+            open_key.clone(),
+            open_modifier,
+            modifiers.clone(),
+            event_sender_4.clone(),
+        );
     });
     event_controller.set_propagation_phase(PropagationPhase::Capture);
     entry.add_controller(event_controller);
@@ -134,7 +142,13 @@ fn launcher_entry_text_change(text: String, event_sender: Sender<TransferType>) 
         .warn("unable to send");
 }
 
-fn handle_release(key: Key, open_modifier: Modifier, mods: Arc<Mutex<u16>>) {
+fn handle_release(
+    key: Key,
+    open_key: Box<str>,
+    open_modifier: Modifier,
+    mods: Arc<Mutex<u16>>,
+    event_sender: Sender<TransferType>,
+) {
     let mut mods = mods.lock().unwrap();
     match key {
         Key::Shift_L | Key::Shift_R if open_modifier != Modifier::Shift => *mods &= !0b0001,
@@ -143,6 +157,17 @@ fn handle_release(key: Key, open_modifier: Modifier, mods: Arc<Mutex<u16>>) {
         Key::Super_L | Key::Super_R if open_modifier != Modifier::Super => *mods &= !0b1000,
         _ => (),
     };
+
+    if key == Key::Shift_L || key == Key::Shift_R {
+        event_sender
+            .send_blocking(TransferType::ShiftOverview(false))
+            .warn("unable to send");
+    } else if key == Key::from_name(&*open_key).unwrap_or(Key::VoidSymbol) {
+        event_sender
+            .send_blocking(TransferType::TabOverview(false))
+            .warn("unable to send");
+    }
+
     tracing::trace!("key: {}{:?}, mods: {}", key, key, mods);
 }
 
@@ -199,7 +224,7 @@ fn handle_key(
         || ((key == Key::Super_L || key == Key::Super_R) && open_modifier == Modifier::Super)
     {
         event_sender
-            .send_blocking(TransferType::Exit)
+            .send_blocking(TransferType::CloseOverview(CloseOverviewConfig::None))
             .warn("unable to send");
         return Propagation::Stop;
     }
@@ -216,7 +241,7 @@ fn handle_key(
             event_sender
                 .send_blocking(TransferType::SwitchOverview(SwitchOverviewConfig {
                     workspace: false,
-                    direction: Direction::Right,
+                    direction: Direction::Forward,
                 }))
                 .warn("unable to send");
             Propagation::Stop
@@ -225,7 +250,7 @@ fn handle_key(
             event_sender
                 .send_blocking(TransferType::SwitchOverview(SwitchOverviewConfig {
                     workspace: false,
-                    direction: Direction::Left,
+                    direction: Direction::Backward,
                 }))
                 .warn("unable to send");
             Propagation::Stop
@@ -283,7 +308,7 @@ fn handle_key(
                 .warn("unable to send");
             Propagation::Stop
         }
-        (_, Key::Return) => {
+        (_, Key::Return) | (_, Key::KP_Enter) => {
             if results.first_child().is_some() {
                 event_sender
                     .send_blocking(TransferType::CloseOverview(CloseOverviewConfig::None))

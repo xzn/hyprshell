@@ -15,7 +15,10 @@ pub fn find_next(
     let _span =
         span!(Level::TRACE, "find_next", direction = ?direction, workspace, active = ?active)
             .entered();
-    let reverse = matches!(direction, Direction::Left | Direction::Up);
+    let reverse = matches!(
+        direction,
+        Direction::Left | Direction::Up | Direction::Backward
+    );
     let next = if workspace {
         if wrap_workspaces {
             find_next_workspace_wrap(reverse, &hypr_data.workspaces, active.workspace)
@@ -43,7 +46,10 @@ pub fn find_first_client(
     workspaces: &[(WorkspaceId, WorkspaceData)],
     active: Active,
 ) -> Option<Active> {
-    let get_last = matches!(direction, Direction::Left | Direction::Up);
+    let get_last = matches!(
+        direction,
+        Direction::Left | Direction::Up | Direction::Backward
+    );
     clients
         .iter()
         .filter(|(_, c)| c.workspace == active.workspace && c.enabled)
@@ -120,6 +126,8 @@ pub fn find_next_workspace(
         Direction::Left => -1,
         Direction::Up => -(workspaces_per_row as isize),
         Direction::Down => workspaces_per_row as isize,
+        Direction::Forward => 1,
+        Direction::Backward => -1,
     };
     trace!("Finding next workspace with offset: {}", offset);
 

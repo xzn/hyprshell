@@ -58,6 +58,7 @@ anyhow = { version = "1.0.98" }
 tracing = { version = "0.1.41" }
 serde_json = { version = "1.0.140" }
 async-channel = { version = "2.3.1", default-features = true }
+hyprland = { version = "0.4.0-beta.2", features = ["async-lite", "dispatch", "keyword", "data", "listener", "ctl", "config"], default-features = false }
 
 gtk = { version = "0.9.6", package = "gtk4", default-features = false, features = ["v4_14"] }
 gtk4-layer-shell = { version = "0.5.0" }

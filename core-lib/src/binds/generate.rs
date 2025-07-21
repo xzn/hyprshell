@@ -33,7 +33,7 @@ pub fn generate_bind_kill(kill_bind: &str) -> anyhow::Result<ExecBind> {
     let bind = ExecBind {
         key,
         mods,
-        on_release: true,
+        on_release: false,
         exec: "pkill hyprshell".into(),
     };
     Ok(bind)

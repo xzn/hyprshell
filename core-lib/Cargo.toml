@@ -14,6 +14,7 @@ rust-version.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
+hyprland.workspace = true
 
 notify = { version = "8.0.0", features = [] }
 inquire = { version = "0.7.5", optional = true, default-features = false, features = ["termion"] }

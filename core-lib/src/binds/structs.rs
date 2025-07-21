@@ -10,8 +10,8 @@ pub struct ExecBind {
     // hello from bene
 }
 
-#[derive(Debug)]
-pub enum Flag {
-    AllowRepeat,
-    DontConsume,
-}
+// #[derive(Debug)]
+// pub enum Flag {
+//     AllowRepeat,
+//     DontConsume,
+// }

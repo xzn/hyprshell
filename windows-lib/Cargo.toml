@@ -18,4 +18,5 @@ gtk4-layer-shell.workspace = true
 core-lib.workspace = true
 exec-lib.workspace = true
 async-channel.workspace = true
+hyprland.workspace = true
 regex = { version = "1.11.1" }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TransferType {
     /// send from the keybind to open the overview
-    OpenOverview,
+    OpenOverview(OpenOverview),
     /// send from the keybind to open the switch
     OpenSwitch(OpenSwitch),
     /// send from the keybinds like arrow keys or tab on overview
@@ -13,6 +13,8 @@ pub enum TransferType {
     SwitchSwitch(SwitchSwitchConfig),
     CloseOverview(CloseOverviewConfig),
     CloseSwitch,
+    ShiftOverview(bool),
+    TabOverview(bool),
     ShiftSwitch(bool),
     TabSwitch(bool),
     /// send from the gui itself when typing the launcher
@@ -22,6 +24,11 @@ pub enum TransferType {
     /// send from the app itself when new monitor / config changes detected
     Restart,
 }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OpenOverview {
+    pub reverse: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OpenSwitch {
     pub reverse: bool,
@@ -74,4 +81,6 @@ pub enum Direction {
     Left,
     Up,
     Down,
+    Forward,
+    Backward,
 }
