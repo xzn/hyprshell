@@ -3,6 +3,7 @@ use crate::global::WindowsSwitchData;
 use crate::icon::set_icon;
 use crate::next::find_next;
 use anyhow::Context;
+use core_lib::data::Active;
 use core_lib::transfer::{Direction, OpenSwitch};
 use core_lib::{ClientData, ClientId, WarnWithDetails};
 use exec_lib::{get_current_monitor, set_remain_focused};
@@ -30,18 +31,6 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
         sort_recent: true,
     })
     .context("Failed to collect data")?;
-    let active = find_next(
-        &if config.reverse {
-            Direction::Left
-        } else {
-            Direction::Right
-        },
-        data.config.show_workspaces,
-        true,
-        &clients_data,
-        active_prev,
-        data.config.items_per_row as usize,
-    );
 
     // TODO find a way to check if the key was already released and close the window or open it faster
     trace!("Showing window {:?}", data.window.id());
@@ -50,6 +39,10 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
     let current_monitor = get_current_monitor().context("Failed to get current monitor")?;
 
     if data.config.show_workspaces {
+        let mut hypr_clients = Vec::new();
+        let mut hypr_workspaces = Vec::new();
+        let mut hypr_active = Some(active_prev);
+        let mut hypr_client = None;
         for (wid, workspace) in &clients_data.workspaces {
             let clients: Vec<&(ClientId, ClientData)> = {
                 let mut clients = clients_data
@@ -68,8 +61,29 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
                 clients
             };
             if clients.is_empty() {
+                if let Some(workspace) = hypr_active
+                    && workspace.workspace == *wid
+                {
+                    hypr_active = None;
+                }
                 continue;
             }
+            if hypr_client.is_none() {
+                if let Some(client) = clients.get(0) {
+                    hypr_client = Some((*client).clone());
+                }
+            }
+            if hypr_active.is_none() {
+                if let Some(client) = clients.get(0) {
+                    hypr_active = Some(Active {
+                        client: Some(client.0),
+                        workspace: *wid,
+                        monitor: client.1.monitor,
+                    });
+                }
+            }
+            hypr_clients.append(&mut clients.iter().map(|client| (*client).clone()).collect());
+            hypr_workspaces.push((*wid, workspace.clone()));
             // TODO add strip_html_from_workspace_title;
             let workspace_fixed = Fixed::builder()
                 .width_request(scale(workspace.width as i16, data.config.scale))
@@ -82,9 +96,9 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
                     .css_classes(["workspace", "no-hover"])
                     .build();
                 button.set_cursor(Cursor::from_name("pointer", None).as_ref());
-                if active.workspace == *wid {
-                    button.add_css_class("active");
-                }
+                // if active.workspace == *wid {
+                //     button.add_css_class("active");
+                // }
                 button
             };
             data.main_flow.insert(&workspace_button, -1);
@@ -140,9 +154,9 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
                     button.set_cursor(Cursor::from_name("pointer", None).as_ref());
 
                     // add initial border around initial active client
-                    if active.client == Some(*address) {
-                        button.add_css_class("active");
-                    }
+                    // if active.client == Some(*address) {
+                    //     button.add_css_class("active");
+                    // }
                     button
                 };
                 workspace_fixed.put(
@@ -153,7 +167,47 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
                 data.clients.insert(*address, client_button);
             }
         }
+        data.hypr_data = clients_data;
+        data.hypr_data.clients = hypr_clients;
+        data.hypr_data.workspaces = hypr_workspaces;
+
+        data.active = if let Some(active) = hypr_active {
+            active
+        } else if let Some(client) = hypr_client {
+            Active {
+                client: Some(client.0),
+                workspace: client.1.workspace,
+                monitor: client.1.monitor,
+            }
+        } else {
+            return Err(anyhow::anyhow!("No visible clients"));
+        };
+
+        if data.config.show_workspaces {
+            if let Some(button) = data.workspaces.get(&data.active.workspace) {
+                button.add_css_class("active");
+            }
+        } else {
+            if let Some(client) = data.active.client
+                && let Some(button) = data.clients.get(&client)
+            {
+                button.add_css_class("active");
+            }
+        }
     } else {
+        let active = find_next(
+            &if config.reverse {
+                Direction::Left
+            } else {
+                Direction::Right
+            },
+            data.config.show_workspaces,
+            true,
+            &clients_data,
+            active_prev,
+            data.config.items_per_row as usize,
+        );
+
         for (address, client) in &clients_data.clients {
             if !client.enabled {
                 continue;
@@ -220,9 +274,8 @@ pub fn open_switch(data: &mut WindowsSwitchData, config: OpenSwitch) -> anyhow::
             data.main_flow.insert(&client_button, -1);
             data.clients.insert(*address, client_button);
         }
+        data.hypr_data = clients_data;
+        data.active = active;
     }
-
-    data.active = active;
-    data.hypr_data = clients_data;
     Ok(())
 }

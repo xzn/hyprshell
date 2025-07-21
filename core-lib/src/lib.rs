@@ -1,6 +1,6 @@
 pub mod binds;
 pub mod config;
-mod data;
+pub mod data;
 mod ini;
 mod listener;
 mod path;
