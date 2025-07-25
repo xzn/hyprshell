@@ -36,9 +36,9 @@ pub fn apply_exec_bind(bind: &ExecBind) -> anyhow::Result<()> {
             .collect(),
         key: binds::Key::Key(&bind.key),
         flags: if bind.on_release {
-            vec![Flag::n, Flag::i, Flag::t, Flag::p, Flag::r, Flag::t]
+            vec![Flag::n, Flag::i, Flag::t, Flag::r]
         } else {
-            vec![]
+            vec![Flag::e]
         },
         dispatcher: DispatchType::Exec(&bind.exec),
     };

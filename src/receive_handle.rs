@@ -54,12 +54,23 @@ fn r#type(global: &mut Globals, text: String, event_sender: Sender<TransferType>
 fn open_overview(global: &mut Globals, event_sender: Sender<TransferType>, config: OpenOverview) {
     if let Some(windows) = &mut global.windows {
         if let Some((overview, launcher)) = &mut windows.overview {
-            if !windows_lib::overview_already_open(overview)
-                && !&windows
-                    .switch
-                    .as_ref()
-                    .map(windows_lib::switch_already_open)
-                    .unwrap_or(false)
+            if windows_lib::overview_already_open(overview) {
+                switch_overview(
+                    global,
+                    SwitchOverviewConfig {
+                        direction: if config.reverse {
+                            Direction::Backward
+                        } else {
+                            Direction::Forward
+                        },
+                        workspace: false,
+                    },
+                );
+            } else if !&windows
+                .switch
+                .as_ref()
+                .map(windows_lib::switch_already_open)
+                .unwrap_or(false)
             {
                 windows_lib::open_overview(overview, event_sender)
                     .warn("Failed to open overview window");
@@ -81,12 +92,18 @@ fn open_overview(global: &mut Globals, event_sender: Sender<TransferType>, confi
 fn open_switch(global: &mut Globals, config: OpenSwitch) {
     if let Some(windows) = &mut global.windows {
         if let Some(switch) = &mut windows.switch {
-            if !windows_lib::switch_already_open(switch)
-                && !&windows
-                    .overview
-                    .as_ref()
-                    .map(|(o, _)| windows_lib::overview_already_open(o))
-                    .unwrap_or(false)
+            if windows_lib::switch_already_open(switch) {
+                switch_switch(
+                    global,
+                    SwitchSwitchConfig {
+                        reverse: config.reverse,
+                    },
+                );
+            } else if !&windows
+                .overview
+                .as_ref()
+                .map(|(o, _)| windows_lib::overview_already_open(o))
+                .unwrap_or(false)
             {
                 switch.shift = config.reverse;
                 switch.tab = true;
@@ -106,9 +123,9 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
 fn shift_overview(global: &mut Globals, shift: bool) {
     if let Some(windows) = &mut global.windows {
         if let Some((overview, _)) = &mut windows.overview {
-            if !overview.tab {
-                overview.shift = shift;
-            }
+            // if !overview.tab {
+            overview.shift = shift;
+            // }
         } else {
             warn!("Window overview not active");
         }
@@ -130,9 +147,9 @@ fn tab_overview(global: &mut Globals, tab: bool) {
 fn shift_switch(global: &mut Globals, shift: bool) {
     if let Some(windows) = &mut global.windows {
         if let Some(switch) = &mut windows.switch {
-            if !switch.tab {
-                switch.shift = shift;
-            }
+            // if !switch.tab {
+            switch.shift = shift;
+            // }
         } else {
             warn!("Window switch not active");
         }
@@ -205,7 +222,9 @@ fn exit(global: &mut Globals) {
 fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
     if let Some(windows) = &mut global.windows {
         if let Some((overview, launcher)) = &mut windows.overview {
-            if overview.opened && !overview.tab {
+            if overview.opened
+            /* && !overview.tab */
+            {
                 match config {
                     // return (focus active)
                     CloseOverviewConfig::None => {
@@ -249,7 +268,9 @@ fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
 fn close_switch(global: &mut Globals) {
     if let Some(windows) = &mut global.windows {
         if let Some(switch) = &mut windows.switch {
-            if switch.opened && !switch.tab {
+            if switch.opened
+            /* && !switch.tab */
+            {
                 windows_lib::close_switch(switch, true);
                 switch.opened = false;
             }
