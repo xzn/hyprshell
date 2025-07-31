@@ -9,6 +9,7 @@ use core_lib::transfer::{
 use gtk::gio::prelude::ApplicationExt;
 use gtk::prelude::EntryExt;
 use tracing::{debug, trace, warn};
+use windows_lib::create_windows_overview_window;
 
 pub async fn event_handler(
     mut globals: Globals,
@@ -45,7 +46,7 @@ pub async fn event_handler(
 
 fn r#type(global: &mut Globals, text: String, event_sender: Sender<TransferType>) {
     if let Some(windows) = &mut global.windows {
-        if let Some((_overview, launcher)) = &mut windows.overview {
+        if let (Some(_overview), Some(launcher)) = &mut windows.overview {
             launcher_lib::update_launcher(launcher, text, event_sender)
         }
     }
@@ -53,7 +54,27 @@ fn r#type(global: &mut Globals, text: String, event_sender: Sender<TransferType>
 
 fn open_overview(global: &mut Globals, event_sender: Sender<TransferType>, config: OpenOverview) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, launcher)) = &mut windows.overview {
+        if let (some_overview, Some(launcher)) = &mut windows.overview {
+            let overview = if let Some(overview) = some_overview {
+                overview
+            } else if let Some(windows) = &global.config.windows
+                && let Some(overview) = &windows.overview
+            {
+                let overview_data = create_windows_overview_window(&global.app, overview, windows);
+                if let Ok(overview) = overview_data {
+                    *some_overview = Some(overview);
+                    if let Some(overview) = some_overview {
+                        overview
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            };
+
             if windows_lib::overview_already_open(overview) {
                 switch_overview(
                     global,
@@ -99,12 +120,11 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
                         reverse: config.reverse,
                     },
                 );
-            } else if !&windows
-                .overview
-                .as_ref()
-                .map(|(o, _)| windows_lib::overview_already_open(o))
-                .unwrap_or(false)
-            {
+            } else if if let (Some(overview_data), _) = &windows.overview {
+                !windows_lib::overview_already_open(overview_data)
+            } else {
+                true
+            } {
                 switch.shift = config.reverse;
                 switch.tab = true;
                 switch.opened = true;
@@ -122,7 +142,7 @@ fn open_switch(global: &mut Globals, config: OpenSwitch) {
 
 fn shift_overview(global: &mut Globals, shift: bool) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, _)) = &mut windows.overview {
+        if let (Some(overview), _) = &mut windows.overview {
             // if !overview.tab {
             overview.shift = shift;
             // }
@@ -135,7 +155,7 @@ fn shift_overview(global: &mut Globals, shift: bool) {
 }
 fn tab_overview(global: &mut Globals, tab: bool) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, _)) = &mut windows.overview {
+        if let (Some(overview), _) = &mut windows.overview {
             overview.tab = tab;
         } else {
             warn!("Window overview not active");
@@ -185,7 +205,7 @@ fn switch_switch(global: &mut Globals, config: SwitchSwitchConfig) {
 }
 fn switch_overview(global: &mut Globals, config: SwitchOverviewConfig) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, launcher)) = &mut windows.overview {
+        if let (Some(overview), Some(launcher)) = &mut windows.overview {
             // don't switch selected window if launcher is active
             let launch = launcher.entry.text_length() > 0;
             if !launch {
@@ -208,10 +228,13 @@ fn switch_overview(global: &mut Globals, config: SwitchOverviewConfig) {
 }
 fn exit(global: &mut Globals) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, launcher)) = &mut windows.overview {
+        let (some_overview, some_launcher) = &mut windows.overview;
+        if let Some(overview) = some_overview {
             windows_lib::close_overview(overview, None);
+        }
+        if let Some(launcher) = some_launcher {
             launcher_lib::close_launcher_by_char(launcher, None); // this will never open a program and need the default terminal
-        };
+        }
         if let Some(switch) = &mut windows.switch {
             windows_lib::close_switch(switch, false);
         };
@@ -221,44 +244,48 @@ fn exit(global: &mut Globals) {
 
 fn close_overview(global: &mut Globals, config: CloseOverviewConfig) {
     if let Some(windows) = &mut global.windows {
-        if let Some((overview, launcher)) = &mut windows.overview {
-            if overview.opened
-            /* && !overview.tab */
-            {
-                match config {
-                    // return (focus active)
-                    CloseOverviewConfig::None => {
-                        let launcher_empty = launcher.entry.text_length() == 0;
-                        let launcher_no_items = launcher.sorted_matches.is_empty();
-                        if launcher_empty {
-                            // close overview, kill launcher
-                            windows_lib::close_overview(overview, Some(None));
-                            launcher_lib::close_launcher_by_char(launcher, None);
-                        } else if launcher_no_items {
-                            debug!("Launcher is empty, not closing");
-                        } else {
-                            // kill overview, close launcher
+        if let (some_overview, Some(launcher)) = &mut windows.overview {
+            if let Some(overview) = some_overview {
+                if overview.opened
+                /* && !overview.tab */
+                {
+                    match config {
+                        // return (focus active)
+                        CloseOverviewConfig::None => {
+                            let launcher_empty = launcher.entry.text_length() == 0;
+                            let launcher_no_items = launcher.sorted_matches.is_empty();
+                            if launcher_empty {
+                                // close overview, kill launcher
+                                windows_lib::close_overview(overview, Some(None));
+                                launcher_lib::close_launcher_by_char(launcher, None);
+                            } else if launcher_no_items {
+                                debug!("Launcher is empty, not closing");
+                            } else {
+                                // kill overview, close launcher
+                                windows_lib::close_overview(overview, None);
+                                launcher_lib::close_launcher_by_char(launcher, Some('0'));
+                            };
+                        }
+                        // clicked on launcher item
+                        CloseOverviewConfig::LauncherClick(iden) => {
                             windows_lib::close_overview(overview, None);
-                            launcher_lib::close_launcher_by_char(launcher, Some('0'));
-                        };
+                            launcher_lib::close_launcher_by_iden(launcher, &iden);
+                        }
+                        // typed a character in launcher
+                        CloseOverviewConfig::LauncherPress(iden) => {
+                            windows_lib::close_overview(overview, None);
+                            launcher_lib::close_launcher_by_char(launcher, Some(iden));
+                        }
+                        // clicked on window
+                        CloseOverviewConfig::Windows(iden) => {
+                            windows_lib::close_overview(overview, Some(Some(iden)));
+                            launcher_lib::close_launcher_by_char(launcher, None);
+                        }
                     }
-                    // clicked on launcher item
-                    CloseOverviewConfig::LauncherClick(iden) => {
-                        windows_lib::close_overview(overview, None);
-                        launcher_lib::close_launcher_by_iden(launcher, &iden);
-                    }
-                    // typed a character in launcher
-                    CloseOverviewConfig::LauncherPress(iden) => {
-                        windows_lib::close_overview(overview, None);
-                        launcher_lib::close_launcher_by_char(launcher, Some(iden));
-                    }
-                    // clicked on window
-                    CloseOverviewConfig::Windows(iden) => {
-                        windows_lib::close_overview(overview, Some(Some(iden)));
-                        launcher_lib::close_launcher_by_char(launcher, None);
-                    }
+                    overview.opened = false;
                 }
-                overview.opened = false;
+                windows_lib::stop_overview(overview);
+                *some_overview = None;
             }
         }
     }
@@ -281,8 +308,11 @@ fn close_switch(global: &mut Globals) {
 
 fn restart(global: &Globals) {
     if let Some(windows) = &global.windows {
-        if let Some((overview, launcher)) = &windows.overview {
+        let (some_overview, some_launcher) = &windows.overview;
+        if let Some(overview) = some_overview {
             windows_lib::stop_overview(overview);
+        }
+        if let Some(launcher) = some_launcher {
             launcher_lib::stop_launcher(launcher);
         };
         if let Some(switch) = &windows.switch {

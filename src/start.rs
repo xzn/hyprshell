@@ -11,7 +11,7 @@ use core_lib::{
     APPLICATION_ID, WarnWithDetails, config, hyprshell_config_block, hyprshell_config_listener,
     hyprshell_css_listener,
 };
-use exec_lib::listener::{hyprland_config_listener, monitor_listener};
+// use exec_lib::listener::{hyprland_config_listener, monitor_listener};
 use exec_lib::{reload_hyprland_config, toast};
 use gtk::gdk::Display;
 use gtk::prelude::*;
@@ -29,7 +29,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use tracing::{Level, debug, error, info, span};
 use windows_lib::{
-    WindowsOverviewData, WindowsSwitchData, create_windows_overview_window,
+    WindowsOverviewData, WindowsSwitchData, /* create_windows_overview_window, */
     create_windows_switch_window,
 };
 
@@ -85,11 +85,12 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
 pub struct Globals {
     pub windows: Option<WindowsGlobal>,
     pub app: Application,
+    pub config: Config,
 }
 
 #[derive(Debug, Default)]
 pub struct WindowsGlobal {
-    pub overview: Option<(WindowsOverviewData, LauncherData)>,
+    pub overview: (Option<WindowsOverviewData>, Option<LauncherData>),
     pub switch: Option<WindowsSwitchData>,
 }
 
@@ -154,12 +155,13 @@ fn create_windows(
     let mut global = Globals {
         windows: None,
         app: app.clone(),
+        config: config.clone(),
     };
     if let Some(windows) = &config.windows {
         let mut windows_data = WindowsGlobal::default();
         if let Some(overview) = &windows.overview {
-            let overview_data = create_windows_overview_window(app, overview, windows)
-                .context("failed to create overview window")?;
+            // let overview_data = create_windows_overview_window(app, overview, windows)
+            //     .context("failed to create overview window")?;
             let launcher_data = create_windows_overview_launcher_window(
                 app,
                 &overview.launcher,
@@ -170,7 +172,8 @@ fn create_windows(
                 overview.use_grave_for_reverse,
             )
             .context("failed to create launcher window")?;
-            windows_data.overview = Some((overview_data, launcher_data));
+            // windows_data.overview = Some((overview_data, launcher_data));
+            windows_data.overview = (None, Some(launcher_data));
         } else {
             debug!("Windows overview disabled");
         }
@@ -266,7 +269,7 @@ enum RestartType {
     Unknown,
     HyprshellConfig,
     HyprshellCss,
-    Monitor,
+    // Monitor,
     HyprlandConfig,
 }
 
@@ -303,6 +306,7 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
             .push(Box::new(watcher));
     };
 
+    /*
     let tx = restart_tx.clone();
     glib::spawn_future_local(async move {
         monitor_listener(move |mess| {
@@ -323,4 +327,5 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
         })
         .await;
     });
+    */
 }
