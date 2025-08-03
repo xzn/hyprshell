@@ -256,16 +256,18 @@ pub fn register_event_restarter(
             let cause_str = cause.str;
             let duration = Instant::now().duration_since(last_send);
             if duration < delay {
-                let mut config_watcher = config_watcher_lock.lock().unwrap();
-                if *config_watcher {
-                    *config_watcher = false;
-                    last_ty = RestartType::Unknown;
-                    debug!("Skipping restart request ({cause_str})");
-                    continue;
-                } else if cause.ty == last_ty && last_ty == RestartType::HyprlandConfig {
-                    debug!("Ignoring restart request ({cause_str}) too soon after last send");
-                    last_ty = cause.ty;
-                    continue;
+                if cause.ty == RestartType::HyprlandConfig {
+                    let mut config_watcher = config_watcher_lock.lock().unwrap();
+                    if *config_watcher {
+                        *config_watcher = false;
+                        last_ty = RestartType::Unknown;
+                        debug!("Skipping restart request ({cause_str})");
+                        continue;
+                    } else if cause.ty == last_ty {
+                        debug!("Ignoring restart request ({cause_str}) too soon after last send");
+                        last_ty = cause.ty;
+                        continue;
+                    }
                 }
                 debug!("Delaying restart request ({cause_str}) too soon after last send");
                 sleep(delay - duration);
