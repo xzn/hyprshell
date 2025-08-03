@@ -11,7 +11,7 @@ use core_lib::{
     APPLICATION_ID, WarnWithDetails, config, hyprshell_config_block, hyprshell_config_listener,
     hyprshell_css_listener,
 };
-// use exec_lib::listener::{hyprland_config_listener, monitor_listener};
+use exec_lib::listener::{hyprland_config_listener /*, monitor_listener */};
 use exec_lib::{reload_hyprland_config, toast};
 use gtk::gdk::Display;
 use gtk::prelude::*;
@@ -24,7 +24,7 @@ use std::any::Any;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 use tracing::{Level, debug, error, info, span};
@@ -45,10 +45,24 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
     reload_desktop_data();
     fill_icon_map(true);
 
+    let config_watcher_lock = Arc::new(Mutex::<bool>::new(false));
     let (event_sender, event_receiver) = async_channel::unbounded();
 
+    // delay for 1.5 seconds to allow the config to be reloaded before listening for reload
+    let delay = env::var("HYPRSHELL_RELOAD_TIMEOUT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1500);
+    let delay = Duration::from_millis(delay);
+
     if env::var_os("HYPRSHELL_NO_LISTENERS").is_none() {
-        register_event_restarter(config_path.clone(), css_path.clone(), event_sender.clone());
+        register_event_restarter(
+            config_path.clone(),
+            css_path.clone(),
+            event_sender.clone(),
+            Arc::clone(&config_watcher_lock),
+            delay.clone(),
+        );
     }
 
     let event_sender_2 = event_sender.clone();
@@ -62,6 +76,7 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
             .application_id(APPLICATION_ID.to_string())
             .build();
         debug!("Application created");
+        let config_watcher_lock = Arc::clone(&config_watcher_lock);
 
         let config_path = config_path.clone();
         let css_path = css_path.clone();
@@ -69,6 +84,8 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
         let event_sender = event_sender.clone();
         let event_receiver = event_receiver.clone();
         application.connect_activate(move |app| {
+            let mut config_watcher = config_watcher_lock.lock().unwrap();
+            *config_watcher = true;
             activate(
                 app,
                 &config_path,
@@ -76,7 +93,7 @@ pub fn start(config_path: PathBuf, css_path: PathBuf, data_dir: PathBuf) -> anyh
                 &data_dir,
                 event_sender.clone(),
                 event_receiver.clone(),
-            )
+            );
         });
         application.run_with_args::<String>(&[]);
     }
@@ -221,13 +238,9 @@ pub fn register_event_restarter(
     config_path: Rc<PathBuf>,
     css_path: Rc<PathBuf>,
     event_sender: Sender<TransferType>,
+    config_watcher_lock: Arc<Mutex<bool>>,
+    delay: Duration,
 ) {
-    // delay for 1.5 seconds to allow the config to be reloaded before listening for reload
-    let delay = env::var("HYPRSHELL_RELOAD_TIMEOUT")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1500);
-    let delay = Duration::from_millis(delay);
     let (restart_sender, restart_receiver) = async_channel::bounded(2);
     glib::timeout_add_local_once(delay, move || {
         setup_restart_listener(&config_path, &css_path, restart_sender);
@@ -243,7 +256,13 @@ pub fn register_event_restarter(
             let cause_str = cause.str;
             let duration = Instant::now().duration_since(last_send);
             if duration < delay {
-                if cause.ty == last_ty && last_ty == RestartType::HyprlandConfig {
+                let mut config_watcher = config_watcher_lock.lock().unwrap();
+                if *config_watcher {
+                    *config_watcher = false;
+                    last_ty = RestartType::Unknown;
+                    debug!("Skipping restart request ({cause_str})");
+                    continue;
+                } else if cause.ty == last_ty && last_ty == RestartType::HyprlandConfig {
                     debug!("Ignoring restart request ({cause_str}) too soon after last send");
                     last_ty = cause.ty;
                     continue;
@@ -317,6 +336,7 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
         })
         .await;
     });
+    */
     let tx = restart_tx.clone();
     glib::spawn_future_local(async move {
         hyprland_config_listener(move |mess| {
@@ -327,5 +347,4 @@ fn setup_restart_listener(config_path: &Path, css_path: &Path, restart_tx: Sende
         })
         .await;
     });
-    */
 }
