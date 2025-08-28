@@ -319,5 +319,8 @@ fn restart(global: &Globals) {
             windows_lib::stop_switch(switch);
         };
     }
-    global.app.quit();
+    let app = global.app.clone();
+    gtk::glib::idle_add_local_once(move || {
+        app.quit();
+    });
 }
