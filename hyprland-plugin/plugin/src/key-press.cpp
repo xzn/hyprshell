@@ -1,6 +1,7 @@
 #include <strings.h>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/devices/IKeyboard.hpp>
+#include <hyprland/src/managers/input/InputManager.hpp>
 
 #include "globals.h"
 #include "defs.h"
@@ -15,6 +16,11 @@ void onKeyPress(const std::unordered_map<std::string, std::any> &data) {
 
     if (keyboardIt != data.end() && eventIt != data.end()) {
         const auto keyboard = std::any_cast<CSharedPointer<IKeyboard> >(keyboardIt->second);
+        const auto ignoreVirtual = g_pInputManager->shouldIgnoreVirtualKeyboard(keyboard);
+        if (ignoreVirtual) {
+            return;
+        }
+
         const auto event = std::any_cast<IKeyboard::SKeyEvent>(eventIt->second);
         const auto state = keyboard->m_xkbState;
         const uint32_t keycode = event.keycode + 8; // +8 because xkbcommon expects +8 from libinput
